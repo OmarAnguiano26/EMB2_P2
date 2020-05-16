@@ -48,7 +48,16 @@
 #include "event_groups.h"
 /* TODO: insert other definitions and declarations here. */
 
-#define EVENT_MINUTE  (1 << 0)
+#define I2C_SDA_PORT			(PORTE)
+#define I2C_SCL_PORT 			(PORTE)
+#define I2C_SDA_GPIO			(GPIOE)
+#define I2C_SCL_GPIO 			(GPIOE)
+#define I2C_SDA_PIN 			(25U)
+#define I2C_SCL_PIN 			(24U)
+
+#define EVENT_MINUTE  			(1 << 0)
+#define ELEMENTS				(3U)
+
 
 
 /**Definition of the handles*/
@@ -83,7 +92,27 @@ int main(void) {
     hours_semphr = xSemaphoreCreateBinary();
     g_mutex = xSemaphoreCreateMutex();
     g_events = xEventGroupCreate();
-    xQueue = xQueueCreate(ELEMENTS, sizeof(time_msg_t*));
+
+    /**Configs the GPIO*/
+    gpio_pin_config_t pin_config;
+    port_pin_config_t i2c_pin_config = {0};
+
+      /* Config pin mux as gpio */
+    i2c_pin_config.pullSelect = kPORT_PullUp;
+    i2c_pin_config.mux = kPORT_MuxAsGpio;
+
+    pin_config.pinDirection = kGPIO_DigitalOutput;
+    pin_config.outputLogic = 1U;
+    CLOCK_EnableClock(kCLOCK_PortE);
+    PORT_SetPinConfig(I2C_SCL_PORT, I2C_SCL_PIN, &i2c_pin_config);
+    PORT_SetPinConfig(I2C_SDA_PORT, I2C_SDA_PIN, &i2c_pin_config);
+
+    GPIO_PinInit(I2C_SCL_GPIO, I2C_SCL_PIN, &pin_config);
+    GPIO_PinInit(I2C_SDA_GPIO, I2C_SDA_PIN, &pin_config);
+
+    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, 0U);
+    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, 1U);
+
 
     /**Create task*/
     xTaskCreate(Generate_SCL_TASK, "SCL", configMINIMAL_STACK_SIZE, NULL, 3, NULL);
@@ -101,7 +130,10 @@ void Generate_SCL_TASK()
 {
 	for(;;)
 	{
-
+	    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, 0U);
+		vTaskDelay(pdMS_TO_TICKS(10));
+	    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, 1U);
+		vTaskDelay(pdMS_TO_TICKS(10));
 	}
 }
 
