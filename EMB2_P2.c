@@ -150,7 +150,7 @@ void Generate_SCL_TASK()
 			counter ++;
 			if (counter == 8)
 			{
-				vTaskDelay(pdMS_TO_TICKS(100));
+				vTaskDelay(pdMS_TO_TICKS(50));
 				counter++;
 			}
 		}
