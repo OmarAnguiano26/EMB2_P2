@@ -57,17 +57,26 @@
 
 #define EVENT_MINUTE  			(1 << 0)
 #define ELEMENTS				(3U)
+#define FIVE_MS					(5u)
+#define HIGH					(1U)
+#define LOW						(0U)
 
-
+typedef enum{ZERO,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT,NINE,TEN,ELEVEN,TWELVE,THIRTEEN,
+	FOURTEEN,FIFTEEN,SIXTEEN}num_t;
 
 /**Definition of the handles*/
-SemaphoreHandle_t minutes_semphr;
-SemaphoreHandle_t hours_semphr;
+SemaphoreHandle_t i2c_semphr;
+SemaphoreHandle_t i2c_data_semphr;
 SemaphoreHandle_t g_mutex;
 
 EventGroupHandle_t g_events;
 
 QueueHandle_t xQueue;
+
+uint8_t counter = ZERO;
+uint8_t data_counter = ZERO;
+uint8_t data = 0xAA;
+uint8_t data_2;
 
 /**Task definitions*/
 	void Generate_SCL_TASK();
@@ -87,15 +96,16 @@ int main(void) {
     BOARD_InitDebugConsole();
     PRINTF("START\n");
 
+
     /**Creates semphr, events and mutex*/
-    minutes_semphr = xSemaphoreCreateBinary();
-    hours_semphr = xSemaphoreCreateBinary();
+    i2c_semphr = xSemaphoreCreateBinary();
+    i2c_data_semphr = xSemaphoreCreateBinary();
     g_mutex = xSemaphoreCreateMutex();
     g_events = xEventGroupCreate();
 
     /**Configs the GPIO*/
     gpio_pin_config_t pin_config;
-    port_pin_config_t i2c_pin_config = {0};
+    port_pin_config_t i2c_pin_config = {ZERO};
 
       /* Config pin mux as gpio */
     i2c_pin_config.pullSelect = kPORT_PullUp;
@@ -109,13 +119,13 @@ int main(void) {
 
     GPIO_PinInit(I2C_SCL_GPIO, I2C_SCL_PIN, &pin_config);
     GPIO_PinInit(I2C_SDA_GPIO, I2C_SDA_PIN, &pin_config);
-
-    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, 0U);
-    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, 1U);
+    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, LOW);
 
 
     /**Create task*/
     xTaskCreate(Generate_SCL_TASK, "SCL", configMINIMAL_STACK_SIZE, NULL, 3, NULL);
+    xTaskCreate(Generate_SDA_ADDRESS_TASK, "SDA_ADDRESS", configMINIMAL_STACK_SIZE, NULL, 3, NULL);
+    xTaskCreate(Generate_SDA_DATA_TASK, "SDA", configMINIMAL_STACK_SIZE, NULL, 3, NULL);
 
     vTaskStartScheduler();
 
@@ -130,10 +140,34 @@ void Generate_SCL_TASK()
 {
 	for(;;)
 	{
-	    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, 0U);
-		vTaskDelay(pdMS_TO_TICKS(10));
-	    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, 1U);
-		vTaskDelay(pdMS_TO_TICKS(10));
+		if (8 > counter)
+		{
+			GPIO_PinWrite(I2C_SCL_GPIO, I2C_SCL_PIN, LOW);
+			vTaskDelay(pdMS_TO_TICKS(FIVE_MS));
+			xSemaphoreGive(i2c_semphr);
+			GPIO_PinWrite(I2C_SCL_GPIO, I2C_SCL_PIN, HIGH);
+			vTaskDelay(pdMS_TO_TICKS(FIVE_MS));
+			counter ++;
+			if (counter == 8)
+			{
+				vTaskDelay(pdMS_TO_TICKS(100));
+				counter++;
+			}
+		}
+		if(8 < counter && 17 > counter)
+		{
+			GPIO_PinWrite(I2C_SCL_GPIO, I2C_SCL_PIN, LOW);
+			vTaskDelay(pdMS_TO_TICKS(FIVE_MS));
+			xSemaphoreGive(i2c_data_semphr);
+			GPIO_PinWrite(I2C_SCL_GPIO, I2C_SCL_PIN, HIGH);
+			vTaskDelay(pdMS_TO_TICKS(FIVE_MS));
+			counter ++;
+			if(17 == counter)
+			{
+				vTaskDelay(pdMS_TO_TICKS(100));
+			}
+		}
+
 	}
 }
 
@@ -141,7 +175,36 @@ void Generate_SDA_ADDRESS_TASK()
 {
 	for(;;)
 	{
-
+		xSemaphoreTake(i2c_semphr,portMAX_DELAY);
+		switch (counter)
+		{
+			case ZERO:
+			    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, HIGH);
+				break;
+			case ONE:
+			    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, HIGH);
+				break;
+			case TWO:
+			    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, HIGH);
+				break;
+			case THREE:
+			    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, LOW);
+				break;
+			case FOUR:
+			    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, LOW);
+				break;
+			case FIVE:
+			    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, HIGH);
+				break;
+			case SIX:
+			    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, LOW);
+				break;
+			case SEVEN:
+			    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, HIGH);
+				break;
+			default:
+				break;
+		}
 	}
 }
 
@@ -149,7 +212,36 @@ void Generate_SDA_DATA_TASK()
 {
 	for(;;)
 	{
-
+		xSemaphoreTake(i2c_data_semphr,portMAX_DELAY);
+		switch (counter)
+				{
+					case NINE:
+					    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, LOW);
+						break;
+					case TEN:
+					    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, LOW);
+						break;
+					case ELEVEN:
+					    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, LOW);
+						break;
+					case TWELVE:
+					    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, HIGH);
+						break;
+					case THIRTEEN:
+					    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, HIGH);
+						break;
+					case FOURTEEN:
+					    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, LOW);
+						break;
+					case FIFTEEN:
+					    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, HIGH);
+						break;
+					case SIXTEEN:
+					    GPIO_PinWrite(I2C_SDA_GPIO, I2C_SDA_PIN, LOW);
+						break;
+					default:
+						break;
+				}
 	}
 }
 
