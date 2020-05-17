@@ -57,8 +57,8 @@ int main(void)
     parameters_task.data_semphr = xSemaphoreCreateMutex();
 
     xTaskCreate(sck_task, "sck task", configMINIMAL_STACK_SIZE + 100, (void*)&parameters_task, configMAX_PRIORITIES, NULL);
-    xTaskCreate(sda_rd_task, "sda_rd_task", configMINIMAL_STACK_SIZE + 100, (void*)&parameters_task, configMAX_PRIORITIES, NULL);
-  //  xTaskCreate(sd_task, "sd task", configMINIMAL_STACK_SIZE + 100, NULL, configMAX_PRIORITIES, NULL);
+    xTaskCreate(sda_rd_task, "sda_rd_task", configMINIMAL_STACK_SIZE + 100, (void*)&parameters_task, configMAX_PRIORITIES-1, NULL);
+    xTaskCreate(sda_send_task, "sda_send_task", configMINIMAL_STACK_SIZE + 100, (void*)&parameters_task, configMAX_PRIORITIES-1, NULL);
 
     vTaskStartScheduler();
     for (;;){
@@ -94,33 +94,26 @@ static void sck_task(void *pvParameters)
 
 static void sda_rd_task(void *pvParameters)
 {
-	uint8_t address[] = {1,0,1,0,1,0,1,0};
-	uint8_t i = 0;
-	uint8_t tmp = 0;
+	uint8_t address = 0b10101010;
+
 	parameters_task_t parameters_task = *((parameters_task_t*)pvParameters);
     for (;;)
     {
     	xSemaphoreTake(parameters_task.addres_semphr, portMAX_DELAY);
-    	tmp = address[i];
-        PRINTF("%i",tmp);
-        if(i<8)
-        {
-            i++;
-        }
+        PRINTF("%i",address);
+        xSemaphoreGive(parameters_task.data_semphr);
     }
 }
 
 static void sda_send_task(void *pvParameters)
 {
-	uint8_t value = 0;
-	uint8_t tmp = 0;
+	uint8_t data = 0b11000011;
+
+	parameters_task_t parameters_task = *((parameters_task_t*)pvParameters);
     for (;;)
     {
-TaskDelay(1);
-        PRINTF("-");
-    	value = 1;
-    	vTaskDelay(1);
-        PRINTF("_");
-    	value = 0;
+    	xSemaphoreTake(parameters_task.addres_semphr, portMAX_DELAY);
+        PRINTF("%i",data);
     }
 }
+
